@@ -23,7 +23,7 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
-  const { user, logout, isAdmin, isCoordinator, isPsychologist } = useAuth();
+  const { user, logout, isAdmin, isCoordinator } = useAuth();
   const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
