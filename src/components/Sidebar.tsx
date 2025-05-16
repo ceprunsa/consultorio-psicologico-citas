@@ -3,7 +3,18 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import Logo from "./Logo";
-import { Home, Users, X, LogOut, ChevronRight, User } from "lucide-react";
+import {
+  Home,
+  Users,
+  X,
+  LogOut,
+  ChevronRight,
+  User,
+  Calendar,
+  Clipboard,
+  FileText,
+  Settings,
+} from "lucide-react";
 import { useState } from "react";
 
 interface SidebarProps {
@@ -12,7 +23,7 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isCoordinator, isPsychologist } = useAuth();
   const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -95,10 +106,20 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
                 className={`px-2 py-1 text-xs font-semibold rounded-full ${
                   user?.role === "admin"
                     ? "bg-green-100 text-green-800 border border-green-200"
-                    : "bg-blue-100 text-blue-800 border border-blue-200"
+                    : user?.role === "coordinator"
+                    ? "bg-purple-100 text-purple-800 border border-purple-200"
+                    : user?.role === "psychologist"
+                    ? "bg-blue-100 text-blue-800 border border-blue-200"
+                    : "bg-gray-100 text-gray-800 border border-gray-200"
                 }`}
               >
-                {user?.role === "admin" ? "Administrador" : "Usuario"}
+                {user?.role === "admin"
+                  ? "Administrador"
+                  : user?.role === "coordinator"
+                  ? "Coordinador"
+                  : user?.role === "psychologist"
+                  ? "Psicólogo"
+                  : "Usuario"}
               </span>
             </div>
           </div>
@@ -123,6 +144,90 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
                   )}
                 </Link>
               </li>
+
+              {/* Citas - Todos los roles pueden ver citas */}
+              <li>
+                <Link
+                  to="/appointments"
+                  className={`flex items-center p-2 rounded-md hover:bg-gray-100 transition-colors duration-200 ${
+                    isActive("/appointments")
+                      ? "bg-[#1A2855]/10 text-[#1A2855] font-medium"
+                      : "text-gray-700"
+                  }`}
+                  onClick={closeSidebar}
+                >
+                  <Calendar size={18} className="mr-3" />
+                  <span>Citas</span>
+                  {isActive("/appointments") && (
+                    <ChevronRight size={16} className="ml-auto" />
+                  )}
+                </Link>
+              </li>
+
+              {/* Psicólogos - Solo admin y coordinador */}
+              {(isAdmin || isCoordinator) && (
+                <li>
+                  <Link
+                    to="/psychologists"
+                    className={`flex items-center p-2 rounded-md hover:bg-gray-100 transition-colors duration-200 ${
+                      isActive("/psychologists")
+                        ? "bg-[#1A2855]/10 text-[#1A2855] font-medium"
+                        : "text-gray-700"
+                    }`}
+                    onClick={closeSidebar}
+                  >
+                    <User size={18} className="mr-3" />
+                    <span>Psicólogos</span>
+                    {isActive("/psychologists") && (
+                      <ChevronRight size={16} className="ml-auto" />
+                    )}
+                  </Link>
+                </li>
+              )}
+
+              {/* Procesos - Solo admin */}
+              {isAdmin && (
+                <li>
+                  <Link
+                    to="/processes"
+                    className={`flex items-center p-2 rounded-md hover:bg-gray-100 transition-colors duration-200 ${
+                      isActive("/processes")
+                        ? "bg-[#1A2855]/10 text-[#1A2855] font-medium"
+                        : "text-gray-700"
+                    }`}
+                    onClick={closeSidebar}
+                  >
+                    <Clipboard size={18} className="mr-3" />
+                    <span>Procesos</span>
+                    {isActive("/processes") && (
+                      <ChevronRight size={16} className="ml-auto" />
+                    )}
+                  </Link>
+                </li>
+              )}
+
+              {/* Motivos de consulta - Solo admin */}
+              {isAdmin && (
+                <li>
+                  <Link
+                    to="/reasons"
+                    className={`flex items-center p-2 rounded-md hover:bg-gray-100 transition-colors duration-200 ${
+                      isActive("/reasons")
+                        ? "bg-[#1A2855]/10 text-[#1A2855] font-medium"
+                        : "text-gray-700"
+                    }`}
+                    onClick={closeSidebar}
+                  >
+                    <FileText size={18} className="mr-3" />
+                    <span>Motivos de consulta</span>
+                    {isActive("/reasons") && (
+                      <ChevronRight size={16} className="ml-auto" />
+                    )}
+                  </Link>
+                </li>
+              )}
+
+              {/* Usuarios - Solo admin */}
               {isAdmin && (
                 <li>
                   <Link
@@ -142,6 +247,8 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
                   </Link>
                 </li>
               )}
+
+              {/* Perfil - Todos los roles */}
               <li>
                 <Link
                   to="/profile"
@@ -159,6 +266,27 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
                   )}
                 </Link>
               </li>
+
+              {/* Configuración - Solo admin */}
+              {isAdmin && (
+                <li>
+                  <Link
+                    to="/settings"
+                    className={`flex items-center p-2 rounded-md hover:bg-gray-100 transition-colors duration-200 ${
+                      isActive("/settings")
+                        ? "bg-[#1A2855]/10 text-[#1A2855] font-medium"
+                        : "text-gray-700"
+                    }`}
+                    onClick={closeSidebar}
+                  >
+                    <Settings size={18} className="mr-3" />
+                    <span>Configuración</span>
+                    {isActive("/settings") && (
+                      <ChevronRight size={16} className="ml-auto" />
+                    )}
+                  </Link>
+                </li>
+              )}
             </ul>
           </nav>
 

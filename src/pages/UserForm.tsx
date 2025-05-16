@@ -13,10 +13,9 @@ const UserForm = () => {
   const { userByIdQuery, saveUser, isSaving } = useUsers();
   const { data: existingUser, isLoading } = userByIdQuery(id);
 
-  // Cambiar el estado inicial para incluir solo email y rol
   const [formData, setFormData] = useState<Partial<User>>({
     email: "",
-    role: "user" as const, // Especificar el tipo literal
+    role: "user" as const,
   });
 
   useEffect(() => {
@@ -48,19 +47,16 @@ const UserForm = () => {
     }
 
     try {
-      // Para usuarios administradores, establecer explícitamente el rol
       const userData: Partial<User> = {
         ...formData,
-        // Asegurar que el rol sea del tipo correcto
-        role: formData.role === "admin" ? "admin" : "user",
+        role: formData.role as
+          | "admin"
+          | "coordinator"
+          | "psychologist"
+          | "user",
       };
 
-      // Llamar a saveUser y manejar la promesa correctamente
       saveUser(userData);
-
-      // No necesitamos await aquí porque saveUser es una función de mutación de React Query
-      // que no devuelve una promesa directamente, sino que maneja la mutación internamente
-
       navigate("/users");
     } catch (error) {
       console.error("Error al guardar usuario:", error);
@@ -116,27 +112,24 @@ const UserForm = () => {
                     />
                   </div>
                   <div className="col-span-6 sm:col-span-4">
-                    <div className="flex items-center mt-4">
-                      <input
-                        id="isAdmin"
-                        name="isAdmin"
-                        type="checkbox"
-                        checked={formData.role === "admin"}
-                        onChange={(e) => {
-                          setFormData((prev) => ({
-                            ...prev,
-                            role: e.target.checked ? "admin" : "user",
-                          }));
-                        }}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label
-                        htmlFor="isAdmin"
-                        className="ml-2 block text-sm text-gray-900"
-                      >
-                        Crear como administrador
-                      </label>
-                    </div>
+                    <label
+                      htmlFor="role"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Rol
+                    </label>
+                    <select
+                      id="role"
+                      name="role"
+                      value={formData.role || "user"}
+                      onChange={handleChange}
+                      className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      <option value="user">Usuario</option>
+                      <option value="psychologist">Psicólogo</option>
+                      <option value="coordinator">Coordinador</option>
+                      <option value="admin">Administrador</option>
+                    </select>
                   </div>
                 </div>
               </div>

@@ -11,7 +11,7 @@ interface MobileHeaderProps {
 
 const MobileHeader = ({
   onOpenSidebar,
-  appName = "CEPRUNSA",
+  appName = "Consultorio Psicológico",
 }: MobileHeaderProps) => {
   return (
     <header className="sticky top-0 z-20 bg-white shadow-sm md:hidden">

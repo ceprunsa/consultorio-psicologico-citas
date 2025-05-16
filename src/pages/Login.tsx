@@ -69,10 +69,10 @@ const Login = () => {
         <div className="flex flex-col items-center justify-center p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-[#1A2855]/5 to-[#7A1A2B]/5">
           <Logo className="h-16 sm:h-20 w-auto" showText={false} />
           <h1 className="mt-2 sm:mt-3 text-xl sm:text-2xl font-bold text-[#1A2855]">
-            Aplicación-base
+            Consultorio Psicológico
           </h1>
           <p className="text-xs sm:text-sm text-gray-600">
-            Sistema de gestión institucional
+            Sistema de gestión de citas psicológicas
           </p>
         </div>
 
@@ -82,13 +82,13 @@ const Login = () => {
           <div className="p-4 md:p-6 md:w-1/2 md:border-r border-gray-200">
             <div className="mb-3 sm:mb-4">
               <h2 className="text-base sm:text-lg font-semibold text-[#7A1A2B] mb-1 sm:mb-2">
-                Acerca de la aplicación
+                Acerca del sistema
               </h2>
               <p className="text-xs sm:text-sm text-gray-600">
-                Esta es una aplicación base para la gestión de usuarios y
-                administración de recursos. Utiliza tu cuenta institucional para
-                acceder al sistema y gestionar la información de manera
-                eficiente.
+                Sistema de registro y gestión de citas psicológicas del
+                Consultorio Psicológico del CEPRUNSA. Utiliza tu cuenta
+                institucional para acceder al sistema y gestionar las citas de
+                manera eficiente.
               </p>
             </div>
 
@@ -97,10 +97,10 @@ const Login = () => {
                 Características principales:
               </h3>
               <ul className="text-xs sm:text-sm text-gray-600 space-y-1 list-disc pl-4 sm:pl-5">
-                <li>Gestión de usuarios y permisos</li>
-                <li>Panel de administración intuitivo</li>
-                <li>Autenticación segura con Google</li>
-                <li>Interfaz responsiva para todos los dispositivos</li>
+                <li>Registro y seguimiento de citas psicológicas</li>
+                <li>Gestión de psicólogos y pacientes</li>
+                <li>Registro de diagnósticos y recomendaciones</li>
+                <li>Reportes y estadísticas de atención</li>
               </ul>
             </div>
 
@@ -117,8 +117,8 @@ const Login = () => {
               <div className="w-full border-t border-gray-200"></div>
             </div>
             <div className="relative flex justify-center">
-              <div className="bg-[#f5f4f5] bg-opacity-95 px-4 py-1">
-                <span className="text-base font-bold text-[#1A2855]">
+              <div className="bg-white bg-opacity-95 px-4 py-1">
+                <span className="text-base font-medium text-[#7A1A2B]">
                   Iniciar sesión
                 </span>
               </div>
@@ -195,8 +195,8 @@ const Login = () => {
 
             <div className="mt-3 pt-3 border-t border-gray-200 text-center max-w-xs w-full">
               <p className="text-xs text-gray-500">
-                © {new Date().getFullYear()} Aplicación-base. Todos los derechos
-                reservados.
+                © {new Date().getFullYear()} Consultorio Psicológico CEPRUNSA.
+                Todos los derechos reservados.
               </p>
             </div>
           </div>

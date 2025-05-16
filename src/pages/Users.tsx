@@ -64,7 +64,25 @@ const Users = () => {
   const confirmChangeRole = async () => {
     if (!userToChangeRole || !userToChangeRole.id) return;
 
-    const newRole = userToChangeRole.role === "admin" ? "user" : "admin";
+    // Determinar el siguiente rol en la secuencia
+    let newRole: "admin" | "coordinator" | "psychologist" | "user" = "user";
+
+    switch (userToChangeRole.role) {
+      case "user":
+        newRole = "psychologist";
+        break;
+      case "psychologist":
+        newRole = "coordinator";
+        break;
+      case "coordinator":
+        newRole = "admin";
+        break;
+      case "admin":
+        newRole = "user";
+        break;
+      default:
+        newRole = "user";
+    }
 
     try {
       await updateUserRole({ userId: userToChangeRole.id, newRole });
@@ -80,6 +98,32 @@ const Users = () => {
 
   const cancelChangeRole = () => {
     setUserToChangeRole(null);
+  };
+
+  const getRoleBadgeClasses = (role: string) => {
+    switch (role) {
+      case "admin":
+        return "bg-green-100 text-green-800 border border-green-200";
+      case "coordinator":
+        return "bg-purple-100 text-purple-800 border border-purple-200";
+      case "psychologist":
+        return "bg-blue-100 text-blue-800 border border-blue-200";
+      default:
+        return "bg-gray-100 text-gray-800 border border-gray-200";
+    }
+  };
+
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case "admin":
+        return "Administrador";
+      case "coordinator":
+        return "Coordinador";
+      case "psychologist":
+        return "Psicólogo";
+      default:
+        return "Usuario";
+    }
   };
 
   return (
@@ -163,13 +207,11 @@ const Users = () => {
                   </div>
                   <div className="xl:col-span-2">
                     <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        user.role === "admin"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
+                      className={`px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadgeClasses(
+                        user.role
+                      )}`}
                     >
-                      {user.role === "admin" ? "Administrador" : "Usuario"}
+                      {getRoleDisplayName(user.role)}
                     </span>
                   </div>
                   <div className="xl:col-span-2 text-sm text-gray-500">
@@ -181,11 +223,7 @@ const Users = () => {
                     <button
                       onClick={() => handleChangeRoleClick(user)}
                       className="p-2 rounded-md text-blue-600 hover:bg-blue-50 transition-colors duration-200"
-                      title={
-                        user.role === "admin"
-                          ? "Cambiar a Usuario"
-                          : "Cambiar a Administrador"
-                      }
+                      title="Cambiar rol"
                     >
                       {user.role === "admin" ? (
                         <ShieldOff size={18} />
@@ -232,11 +270,7 @@ const Users = () => {
                       <button
                         onClick={() => handleChangeRoleClick(user)}
                         className="p-2 rounded-md text-blue-600 hover:bg-blue-50 transition-colors duration-200"
-                        title={
-                          user.role === "admin"
-                            ? "Cambiar a Usuario"
-                            : "Cambiar a Administrador"
-                        }
+                        title="Cambiar rol"
                       >
                         {user.role === "admin" ? (
                           <ShieldOff size={18} />
@@ -254,13 +288,11 @@ const Users = () => {
                   </div>
                   <div className="mt-3 flex items-center justify-between">
                     <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        user.role === "admin"
-                          ? "bg-green-100 text-green-800 border border-green-200"
-                          : "bg-blue-100 text-blue-800 border border-blue-200"
-                      }`}
+                      className={`px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadgeClasses(
+                        user.role
+                      )}`}
                     >
-                      {user.role === "admin" ? "Administrador" : "Usuario"}
+                      {getRoleDisplayName(user.role)}
                     </span>
                     <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
                       {user.createdAt
@@ -380,15 +412,19 @@ const Users = () => {
                         </span>{" "}
                         de{" "}
                         <span className="font-semibold">
-                          {userToChangeRole.role === "admin"
-                            ? "Administrador"
-                            : "Usuario"}
+                          {getRoleDisplayName(userToChangeRole.role)}
                         </span>{" "}
                         a{" "}
                         <span className="font-semibold">
-                          {userToChangeRole.role === "admin"
-                            ? "Usuario"
-                            : "Administrador"}
+                          {getRoleDisplayName(
+                            userToChangeRole.role === "admin"
+                              ? "user"
+                              : userToChangeRole.role === "coordinator"
+                              ? "admin"
+                              : userToChangeRole.role === "psychologist"
+                              ? "coordinator"
+                              : "psychologist"
+                          )}
                         </span>
                         ?
                       </p>

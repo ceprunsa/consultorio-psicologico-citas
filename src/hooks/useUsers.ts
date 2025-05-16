@@ -52,7 +52,7 @@ export const useUsers = (): UsersHookReturn => {
     // Asegurarse de que el rol sea del tipo correcto
     const validatedUserData: Partial<User> = {
       ...userData,
-      role: userData.role === "admin" ? "admin" : "user",
+      role: userData.role as "admin" | "coordinator" | "psychologist" | "user",
     };
 
     try {
@@ -75,7 +75,7 @@ export const useUsers = (): UsersHookReturn => {
     newRole,
   }: {
     userId: string;
-    newRole: "admin" | "user";
+    newRole: "admin" | "coordinator" | "psychologist" | "user";
   }): Promise<void> => {
     try {
       const userRef = doc(db, "users", userId);
@@ -84,7 +84,13 @@ export const useUsers = (): UsersHookReturn => {
       });
       toast.success(
         `Rol actualizado exitosamente a ${
-          newRole === "admin" ? "Administrador" : "Usuario"
+          newRole === "admin"
+            ? "Administrador"
+            : newRole === "coordinator"
+            ? "Coordinador"
+            : newRole === "psychologist"
+            ? "Psicólogo"
+            : "Usuario"
         }`
       );
     } catch (error) {

@@ -10,12 +10,12 @@ const Logo = ({ className = "h-12 w-auto", showText = true }: LogoProps) => {
     <div className="flex flex-col items-center">
       <img
         src={logoImage || "/placeholder.svg"}
-        alt="Logo"
+        alt="Logo CEPRUNSA"
         className={className}
       />
       {showText && (
         <span className="mt-2 text-lg font-semibold text-[#1A2855]">
-          Aplicación-base
+          Consultorio Psicológico
         </span>
       )}
     </div>
