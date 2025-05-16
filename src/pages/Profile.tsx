@@ -3,7 +3,7 @@
 import { useAuth } from "../hooks/useAuth";
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, isAdmin, isCoordinator, isPsychologist } = useAuth();
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -60,7 +60,13 @@ const Profile = () => {
                       : "bg-blue-100 text-blue-800 border border-blue-200"
                   }`}
                 >
-                  {user?.role === "admin" ? "Administrador" : "Usuario"}
+                  {isAdmin
+                    ? "Administrador"
+                    : isCoordinator
+                    ? "Coordinador"
+                    : isPsychologist
+                    ? "Psicólogo"
+                    : "Usuario"}
                 </span>
               </dd>
             </div>

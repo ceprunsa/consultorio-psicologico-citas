@@ -693,58 +693,59 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Información del sistema */}
-      <div className="bg-white rounded-lg shadow overflow-hidden mb-8">
-        <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b">
-          <h2 className="font-semibold text-lg text-gray-800">
-            Información del Sistema
-          </h2>
-        </div>
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="flex items-center mb-3">
-                <Users className="h-5 w-5 text-blue-600 mr-2" />
-                <h3 className="font-medium text-gray-900">Psicólogos</h3>
+      {(isAdmin || isCoordinator) && (
+        <div className="bg-white rounded-lg shadow overflow-hidden mb-8">
+          <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b">
+            <h2 className="font-semibold text-lg text-gray-800">
+              Información del Sistema
+            </h2>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center mb-3">
+                  <Users className="h-5 w-5 text-blue-600 mr-2" />
+                  <h3 className="font-medium text-gray-900">Psicólogos</h3>
+                </div>
+                <p className="text-3xl font-bold text-blue-700">
+                  {psychologists.length}
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Psicólogos registrados en el sistema
+                </p>
               </div>
-              <p className="text-3xl font-bold text-blue-700">
-                {psychologists.length}
-              </p>
-              <p className="text-sm text-gray-500 mt-2">
-                Psicólogos registrados en el sistema
-              </p>
-            </div>
 
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="flex items-center mb-3">
-                <Activity className="h-5 w-5 text-yellow-600 mr-2" />
-                <h3 className="font-medium text-gray-900">Procesos</h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center mb-3">
+                  <Activity className="h-5 w-5 text-yellow-600 mr-2" />
+                  <h3 className="font-medium text-gray-900">Procesos</h3>
+                </div>
+                <p className="text-3xl font-bold text-yellow-700">
+                  {processes.length}
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Procesos de atención configurados
+                </p>
               </div>
-              <p className="text-3xl font-bold text-yellow-700">
-                {processes.length}
-              </p>
-              <p className="text-sm text-gray-500 mt-2">
-                Procesos de atención configurados
-              </p>
-            </div>
 
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="flex items-center mb-3">
-                <FileText className="h-5 w-5 text-green-600 mr-2" />
-                <h3 className="font-medium text-gray-900">
-                  Motivos de Consulta
-                </h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center mb-3">
+                  <FileText className="h-5 w-5 text-green-600 mr-2" />
+                  <h3 className="font-medium text-gray-900">
+                    Motivos de Consulta
+                  </h3>
+                </div>
+                <p className="text-3xl font-bold text-green-700">
+                  {reasons.length}
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Motivos de consulta disponibles
+                </p>
               </div>
-              <p className="text-3xl font-bold text-green-700">
-                {reasons.length}
-              </p>
-              <p className="text-sm text-gray-500 mt-2">
-                Motivos de consulta disponibles
-              </p>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
