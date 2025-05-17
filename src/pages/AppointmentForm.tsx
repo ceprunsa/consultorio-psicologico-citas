@@ -2,13 +2,24 @@
 
 import type React from "react";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAppointments } from "../hooks/useAppointments";
 import { usePsychologists } from "../hooks/usePsychologists";
 import { useProcesses } from "../hooks/useProcesses";
 import { useConsultationReasons } from "../hooks/useConsultationReasons";
-import { Save, X, Calendar, Clock, MapPin, LinkIcon } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
+import {
+  Save,
+  X,
+  Calendar,
+  Clock,
+  MapPin,
+  LinkIcon,
+  Copy,
+  Check,
+  AlertTriangle,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import type { Appointment, Client } from "../types";
 
@@ -20,9 +31,12 @@ const AppointmentForm = () => {
     usePsychologists();
   const { processes, isLoading: isLoadingProcesses } = useProcesses();
   const { reasons, isLoading: isLoadingReasons } = useConsultationReasons();
+  const { isAdmin, isCoordinator, isPsychologist } = useAuth();
+  const emailMessageRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: existingAppointment, isLoading: isLoadingAppointment } =
     appointmentByIdQuery(id);
+  const [copied, setCopied] = useState(false);
 
   // Estado inicial para el formulario
   const [formData, setFormData] = useState<Partial<Appointment>>({
@@ -45,6 +59,31 @@ const AppointmentForm = () => {
     psychologistName: "",
     status: "scheduled",
   });
+
+  // Verificar permisos de acceso
+  useEffect(() => {
+    // Los psicólogos no pueden crear ni editar citas
+    if (isPsychologist && !isAdmin && !isCoordinator) {
+      toast.error("No tienes permisos para crear o editar citas");
+      navigate("/appointments");
+    }
+
+    // Si estamos editando una cita, verificar que el usuario tenga permisos
+    if (id && existingAppointment) {
+      // Solo admin y coordinador pueden editar cualquier cita
+      if (!isAdmin && !isCoordinator) {
+        toast.error("No tienes permisos para editar esta cita");
+        navigate("/appointments");
+      }
+    }
+  }, [
+    id,
+    existingAppointment,
+    isAdmin,
+    isCoordinator,
+    isPsychologist,
+    navigate,
+  ]);
 
   // Cargar datos existentes si estamos editando
   useEffect(() => {
@@ -126,15 +165,80 @@ const AppointmentForm = () => {
       // Preparar datos para guardar
       const appointmentData: Partial<Appointment> = {
         ...formData,
-        ...(id && { id }),
+        id: id || undefined,
       };
 
       // Guardar cita
       await saveAppointment(appointmentData);
+      toast.success(
+        id ? "Cita actualizada correctamente" : "Cita creada correctamente"
+      );
       navigate("/appointments");
     } catch (error) {
       console.error("Error al guardar cita:", error);
       toast.error("Error al guardar la cita");
+    }
+  };
+
+  // Función para formatear la fecha en formato legible
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("es-ES", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  // Generar mensaje de correo electrónico
+  const generateEmailMessage = () => {
+    if (!formData.client?.fullName || !formData.date || !formData.time)
+      return "";
+
+    const formattedDate = formatDate(formData.date);
+
+    let locationInfo = "";
+    if (formData.modality === "virtual") {
+      locationInfo = `Enlace para la reunión: ${formData.location}`;
+    } else {
+      locationInfo = "Lugar: Local Ceprunsa - Calle San Agustín 108, Arequipa";
+    }
+
+    return `Estimado/a postulante: ${formData.client.fullName}
+Reciba un cordial saludo.
+Por medio del presente, nos es grato confirmar su cita en el Consultorio Psicológico del CEPRUNSA, la cual se llevará a cabo de manera ${
+      formData.modality === "virtual" ? "virtual" : "presencial"
+    }. A continuación, le proporcionamos los detalles de su cita:
+
+Fecha: ${formattedDate}
+Hora: ${formData.time}
+${locationInfo}
+
+${
+  formData.modality === "virtual"
+    ? "Le solicitamos acceder al enlace con unos minutos de anticipación para garantizar el buen desarrollo de la sesión. "
+    : ""
+}En caso de requerir asistencia técnica o tener alguna duda, no dude en contactarnos a través de este medio.
+Agradecemos su puntualidad y compromiso.
+
+Atentamente,
+Consultorio Psicológico CEPRUNSA`;
+  };
+
+  // Copiar mensaje al portapapeles
+  const copyToClipboard = () => {
+    if (emailMessageRef.current) {
+      emailMessageRef.current.select();
+      document.execCommand("copy");
+      setCopied(true);
+      toast.success("Mensaje copiado al portapapeles");
+
+      // Resetear el estado después de 3 segundos
+      setTimeout(() => {
+        setCopied(false);
+      }, 3000);
     }
   };
 
@@ -148,6 +252,28 @@ const AppointmentForm = () => {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Si el usuario no tiene permisos, mostrar mensaje
+  if (!isAdmin && !isCoordinator) {
+    return (
+      <div className="max-w-7xl mx-auto p-6 bg-white rounded-lg shadow-md">
+        <div className="flex items-center text-amber-600 mb-4">
+          <AlertTriangle className="h-6 w-6 mr-2" />
+          <h2 className="text-xl font-semibold">Acceso restringido</h2>
+        </div>
+        <p className="text-gray-600 mb-4">
+          No tienes permisos para crear o editar citas. Solo los administradores
+          y coordinadores pueden realizar esta acción.
+        </p>
+        <button
+          onClick={() => navigate("/appointments")}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+        >
+          Volver a la lista de citas
+        </button>
       </div>
     );
   }
@@ -451,6 +577,108 @@ const AppointmentForm = () => {
                 />
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Mensaje para correo electrónico */}
+        <div className="p-6 border-b bg-gray-50">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Mensaje para el Cliente
+            </h2>
+            <div className="flex space-x-2">
+              <button
+                type="button"
+                onClick={copyToClipboard}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 mr-2" />
+                ) : (
+                  <Copy className="h-4 w-4 mr-2" />
+                )}
+                {copied ? "¡Copiado!" : "Copiar mensaje"}
+              </button>
+            </div>
+          </div>
+          <div className="bg-white border border-gray-300 rounded-md p-4">
+            <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-3 text-blue-800 text-sm">
+              <p className="flex items-start">
+                <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+                <span>
+                  Copie este mensaje y péguelo en su cliente de correo
+                  electrónico para enviarlo al paciente.
+                </span>
+              </p>
+            </div>
+            <div className="email-preview p-5 border rounded-md bg-white">
+              <div
+                className="email-content"
+                style={{ lineHeight: "1.6", fontFamily: "Arial, sans-serif" }}
+              >
+                <p style={{ marginBottom: "16px" }}>
+                  <strong>Estimado/a postulante:</strong>{" "}
+                  {formData.client?.fullName}
+                </p>
+                <p style={{ marginBottom: "16px" }}>
+                  Reciba un cordial saludo.
+                </p>
+                <p style={{ marginBottom: "16px" }}>
+                  Por medio del presente, nos es grato confirmar su cita en el
+                  Consultorio Psicológico del CEPRUNSA, la cual se llevará a
+                  cabo de manera{" "}
+                  <strong>
+                    {formData.modality === "virtual" ? "virtual" : "presencial"}
+                  </strong>
+                  . A continuación, le proporcionamos los detalles de su cita:
+                </p>
+                <div
+                  style={{
+                    backgroundColor: "#f8f9fa",
+                    padding: "16px",
+                    borderRadius: "4px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <p style={{ margin: "8px 0" }}>
+                    <strong>Fecha:</strong> {formatDate(formData.date || "")}
+                  </p>
+                  <p style={{ margin: "8px 0" }}>
+                    <strong>Hora:</strong> {formData.time}
+                  </p>
+                  <p style={{ margin: "8px 0" }}>
+                    <strong>
+                      {formData.modality === "virtual"
+                        ? "Enlace para la reunión:"
+                        : "Lugar:"}
+                    </strong>{" "}
+                    {formData.modality === "virtual"
+                      ? formData.location
+                      : "Local Ceprunsa - Calle San Agustín 108, Arequipa"}
+                  </p>
+                </div>
+                <p style={{ marginBottom: "16px" }}>
+                  {formData.modality === "virtual"
+                    ? "Le solicitamos acceder al enlace con unos minutos de anticipación para garantizar el buen desarrollo de la sesión. "
+                    : ""}
+                  En caso de requerir asistencia técnica o tener alguna duda, no
+                  dude en contactarnos a través de este medio.
+                </p>
+                <p style={{ marginBottom: "16px" }}>
+                  Agradecemos su puntualidad y compromiso.
+                </p>
+                <p style={{ marginBottom: "8px" }}>Atentamente,</p>
+                <p style={{ fontWeight: "bold" }}>
+                  Consultorio Psicológico CEPRUNSA
+                </p>
+              </div>
+            </div>
+            <textarea
+              ref={emailMessageRef}
+              readOnly
+              value={generateEmailMessage()}
+              className="sr-only"
+            />
           </div>
         </div>
 
