@@ -165,7 +165,7 @@ const AppointmentForm = () => {
       // Preparar datos para guardar
       const appointmentData: Partial<Appointment> = {
         ...formData,
-        id: id || undefined,
+        ...(id && { id }), // Solo incluir id si estamos editando
       };
 
       // Guardar cita
