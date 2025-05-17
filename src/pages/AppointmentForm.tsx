@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useEffect, type FormEvent, useRef } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAppointments } from "../hooks/useAppointments";
 import { usePsychologists } from "../hooks/usePsychologists";
@@ -32,7 +32,6 @@ const AppointmentForm = () => {
   const { processes, isLoading: isLoadingProcesses } = useProcesses();
   const { reasons, isLoading: isLoadingReasons } = useConsultationReasons();
   const { isAdmin, isCoordinator, isPsychologist } = useAuth();
-  const emailMessageRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: existingAppointment, isLoading: isLoadingAppointment } =
     appointmentByIdQuery(id);
@@ -165,7 +164,7 @@ const AppointmentForm = () => {
       // Preparar datos para guardar
       const appointmentData: Partial<Appointment> = {
         ...formData,
-        ...(id && { id }), // Solo incluir id si estamos editando
+        ...(id ? { id } : {}),
       };
 
       // Guardar cita
@@ -192,18 +191,36 @@ const AppointmentForm = () => {
     });
   };
 
+  // Función para convertir hora de formato 24h a 12h con AM/PM
+  const formatTime12h = (time24h: string) => {
+    if (!time24h) return "";
+
+    // Extraer horas y minutos
+    const [hours, minutes] = time24h.split(":").map(Number);
+
+    // Determinar AM o PM
+    const period = hours >= 12 ? "PM" : "AM";
+
+    // Convertir a formato 12h
+    const hours12 = hours % 12 || 12;
+
+    // Formatear la hora con minutos y periodo
+    return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`;
+  };
+
   // Generar mensaje de correo electrónico
   const generateEmailMessage = () => {
     if (!formData.client?.fullName || !formData.date || !formData.time)
       return "";
 
     const formattedDate = formatDate(formData.date);
+    const formattedTime = formatTime12h(formData.time);
 
     let locationInfo = "";
     if (formData.modality === "virtual") {
-      locationInfo = `Enlace para la reunión: ${formData.location}`;
+      locationInfo = `Enlace para la reunión : ${formData.location}`;
     } else {
-      locationInfo = "Lugar: Local Ceprunsa - Calle San Agustín 108, Arequipa";
+      locationInfo = "Lugar:  Local Ceprunsa - Calle San Agustín 108, Arequipa";
     }
 
     return `Estimado/a postulante: ${formData.client.fullName}
@@ -212,8 +229,8 @@ Por medio del presente, nos es grato confirmar su cita en el Consultorio Psicol�
       formData.modality === "virtual" ? "virtual" : "presencial"
     }. A continuación, le proporcionamos los detalles de su cita:
 
-Fecha: ${formattedDate}
-Hora: ${formData.time}
+Fecha : ${formattedDate}
+Hora : ${formattedTime}
 ${locationInfo}
 
 ${
@@ -227,18 +244,56 @@ Atentamente,
 Consultorio Psicológico CEPRUNSA`;
   };
 
-  // Copiar mensaje al portapapeles
+  // Copiar mensaje al portapapeles - Implementación completamente nueva y robusta
   const copyToClipboard = () => {
-    if (emailMessageRef.current) {
-      emailMessageRef.current.select();
-      document.execCommand("copy");
-      setCopied(true);
-      toast.success("Mensaje copiado al portapapeles");
+    try {
+      // Crear un elemento textarea temporal
+      const textarea = document.createElement("textarea");
 
-      // Resetear el estado después de 3 segundos
-      setTimeout(() => {
-        setCopied(false);
-      }, 3000);
+      // Establecer el valor del textarea con el mensaje generado
+      textarea.value = generateEmailMessage();
+
+      // Asegurarse de que el textarea mantenga los saltos de línea
+      textarea.style.whiteSpace = "pre-wrap";
+
+      // Hacer que el textarea sea parte del DOM pero no visible
+      textarea.style.position = "fixed";
+      textarea.style.top = "0";
+      textarea.style.left = "0";
+      textarea.style.opacity = "0";
+
+      // Añadir el textarea al documento
+      document.body.appendChild(textarea);
+
+      // Seleccionar todo el texto
+      textarea.select();
+      textarea.setSelectionRange(0, 99999); // Para dispositivos móviles
+
+      // Ejecutar el comando de copia
+      const successful = document.execCommand("copy");
+
+      // Eliminar el textarea temporal
+      document.body.removeChild(textarea);
+
+      // Mostrar mensaje de éxito o error
+      if (successful) {
+        setCopied(true);
+        toast.success("Mensaje copiado al portapapeles");
+
+        // Resetear el estado después de 3 segundos
+        setTimeout(() => {
+          setCopied(false);
+        }, 3000);
+      } else {
+        toast.error(
+          "No se pudo copiar el mensaje. Intente seleccionarlo manualmente."
+        );
+      }
+    } catch (err) {
+      console.error("Error al copiar:", err);
+      toast.error(
+        "Error al copiar el mensaje. Intente seleccionarlo manualmente."
+      );
     }
   };
 
@@ -506,7 +561,10 @@ Consultorio Psicológico CEPRUNSA`;
                   htmlFor="time"
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
-                  Hora *
+                  Hora *{" "}
+                  <span className="text-xs text-gray-500">
+                    ({formData.time ? formatTime12h(formData.time) : ""})
+                  </span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -644,7 +702,7 @@ Consultorio Psicológico CEPRUNSA`;
                     <strong>Fecha:</strong> {formatDate(formData.date || "")}
                   </p>
                   <p style={{ margin: "8px 0" }}>
-                    <strong>Hora:</strong> {formData.time}
+                    <strong>Hora:</strong> {formatTime12h(formData.time || "")}
                   </p>
                   <p style={{ margin: "8px 0" }}>
                     <strong>
@@ -673,12 +731,6 @@ Consultorio Psicológico CEPRUNSA`;
                 </p>
               </div>
             </div>
-            <textarea
-              ref={emailMessageRef}
-              readOnly
-              value={generateEmailMessage()}
-              className="sr-only"
-            />
           </div>
         </div>
 
