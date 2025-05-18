@@ -44,7 +44,7 @@ function App() {
         {/* Mobile Header */}
         <MobileHeader
           onOpenSidebar={handleOpenSidebar}
-          appName="Aplicación-base"
+          appName="Consultorio Psicológico"
         />
 
         <main className="container mx-auto px-4 py-8 flex-1">
