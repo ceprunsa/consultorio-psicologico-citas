@@ -124,7 +124,10 @@ const Dashboard = () => {
       month: "long",
       day: "numeric",
     };
-    return new Date(dateString).toLocaleDateString("es-ES", options);
+    return new Date(dateString + "T00:00:00").toLocaleDateString(
+      "es-ES",
+      options
+    );
   };
 
   return (
