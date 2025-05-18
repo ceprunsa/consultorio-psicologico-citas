@@ -271,8 +271,10 @@ const AppointmentDetails = () => {
               <div className="flex items-center">
                 <Calendar className="h-5 w-5 text-gray-500 mr-2" />
                 <span className="text-gray-700 font-medium">
-                  {new Date(appointment.date).toLocaleDateString()} -{" "}
-                  {appointment.time}
+                  {new Date(
+                    appointment.date + "T00:00:00"
+                  ).toLocaleDateString()}{" "}
+                  - {appointment.time}
                 </span>
               </div>
               <div>
@@ -379,7 +381,9 @@ const AppointmentDetails = () => {
                     <div>
                       <p className="text-sm text-gray-500">Fecha</p>
                       <p className="font-medium text-gray-900">
-                        {new Date(appointment.date).toLocaleDateString()}
+                        {new Date(
+                          appointment.date + "T00:00:00"
+                        ).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
