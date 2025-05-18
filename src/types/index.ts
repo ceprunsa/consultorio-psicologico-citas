@@ -93,7 +93,14 @@ export interface Appointment {
   processName?: string;
   reasonId: string;
   reasonName: string;
+  /**
+   * Fecha de la cita en formato YYYY-MM-DD (ISO 8601)
+   * Se guarda en UTC para evitar problemas de zona horaria
+   */
   date: string;
+  /**
+   * Hora de la cita en formato HH:MM (24h)
+   */
   time: string;
   modality: "presential" | "virtual";
   location: string;
@@ -104,8 +111,14 @@ export interface Appointment {
   recommendations?: string;
   conclusions?: string;
   cancellationReason?: string;
+  /**
+   * Fecha y hora de creación en formato ISO 8601 completo
+   */
   createdAt: string;
   createdBy: string;
+  /**
+   * Fecha y hora de última actualización en formato ISO 8601 completo
+   */
   updatedAt?: string;
   updatedBy?: string;
 }

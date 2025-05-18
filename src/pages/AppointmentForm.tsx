@@ -164,7 +164,11 @@ const AppointmentForm = () => {
       // Preparar datos para guardar
       const appointmentData: Partial<Appointment> = {
         ...formData,
-        ...(id ? { id } : {}),
+        // Asegurar que la fecha se guarde en formato YYYY-MM-DD con UTC para evitar problemas de zona horaria
+        date: formData.date
+          ? formatDateToUTC(formData.date)
+          : new Date().toISOString().split("T")[0],
+        ...(id && { id }), // Solo incluir id si estamos editando
       };
 
       // Guardar cita
@@ -179,55 +183,118 @@ const AppointmentForm = () => {
     }
   };
 
-  // Función para formatear la fecha en formato legible
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("es-ES", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  // Función para convertir hora de formato 24h a 12h con AM/PM
+  /**
+   * Convierte una hora de formato 24h a formato 12h con AM/PM
+   * @param time24h - Hora en formato 24h (HH:MM)
+   * @returns Hora en formato 12h (HH:MM AM/PM)
+   */
   const formatTime12h = (time24h: string) => {
     if (!time24h) return "";
 
-    // Extraer horas y minutos
-    const [hours, minutes] = time24h.split(":").map(Number);
+    try {
+      // Extraer horas y minutos
+      const [hours, minutes] = time24h.split(":").map(Number);
 
-    // Determinar AM o PM
-    const period = hours >= 12 ? "PM" : "AM";
+      // Determinar AM o PM
+      const period = hours >= 12 ? "PM" : "AM";
 
-    // Convertir a formato 12h
-    const hours12 = hours % 12 || 12;
+      // Convertir a formato 12h
+      const hours12 = hours % 12 || 12;
 
-    // Formatear la hora con minutos y periodo
-    return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`;
+      // Formatear la hora con minutos y periodo
+      return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`;
+    } catch (error) {
+      console.error("Error al formatear hora:", error);
+      return time24h;
+    }
   };
 
-  // Generar mensaje de correo electrónico
+  /**
+   * Formatea una fecha en formato YYYY-MM-DD a formato UTC para guardar en Firebase
+   * Esto evita problemas de zona horaria donde la fecha puede cambiar al convertirse a ISO
+   * @param dateString - Fecha en formato YYYY-MM-DD
+   * @returns Fecha en formato YYYY-MM-DD preservando el día exacto seleccionado
+   */
+  const formatDateToUTC = (dateString: string): string => {
+    if (!dateString) return "";
+
+    try {
+      // Dividir la fecha en componentes
+      const [year, month, day] = dateString.split("-").map(Number);
+
+      // Crear fecha con hora 12:00 para evitar problemas de cambio de día
+      // Usamos UTC para asegurar que no haya cambios por zona horaria
+      const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+
+      // Extraer solo la parte de fecha en formato YYYY-MM-DD
+      return date.toISOString().split("T")[0];
+    } catch (error) {
+      console.error("Error al formatear fecha para UTC:", error);
+      return dateString;
+    }
+  };
+
+  /**
+   * Formatea una fecha en formato ISO (YYYY-MM-DD) a un formato legible en español
+   * @param dateString - Fecha en formato ISO (YYYY-MM-DD)
+   * @returns Fecha formateada (ej: "lunes, 16 de mayo de 2023")
+   */
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+
+    try {
+      // Asegurarse de que la fecha esté en formato YYYY-MM-DD
+      const [year, month, day] = dateString.split("-").map(Number);
+
+      // Crear un objeto Date con UTC para mantener el día exacto
+      // Usamos hora 12:00 UTC para evitar problemas de cambio de día
+      const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+
+      // Verificar si la fecha es válida
+      if (isNaN(date.getTime())) {
+        console.error("Fecha inválida:", dateString);
+        return dateString;
+      }
+
+      // Formatear la fecha en español
+      return date.toLocaleDateString("es-ES", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "UTC", // Importante: usar UTC para mantener el día correcto
+      });
+    } catch (error) {
+      console.error("Error al formatear fecha:", error);
+      return dateString;
+    }
+  };
+
+  /**
+   * Genera un mensaje de correo electrónico con los detalles de la cita
+   * @returns Mensaje formateado para enviar por correo electrónico
+   */
   const generateEmailMessage = () => {
     if (!formData.client?.fullName || !formData.date || !formData.time)
       return "";
 
-    const formattedDate = formatDate(formData.date);
-    const formattedTime = formatTime12h(formData.time);
+    try {
+      const formattedDate = formatDate(formData.date);
+      const formattedTime = formatTime12h(formData.time);
 
-    let locationInfo = "";
-    if (formData.modality === "virtual") {
-      locationInfo = `Enlace para la reunión : ${formData.location}`;
-    } else {
-      locationInfo = "Lugar:  Local Ceprunsa - Calle San Agustín 108, Arequipa";
-    }
+      let locationInfo = "";
+      if (formData.modality === "virtual") {
+        locationInfo = `Enlace para la reunión : ${formData.location}`;
+      } else {
+        locationInfo =
+          "Lugar:  Local Ceprunsa - Calle San Agustín 108, Arequipa";
+      }
 
-    return `Estimado/a postulante: ${formData.client.fullName}
+      return `Estimado/a postulante: ${formData.client.fullName}
 Reciba un cordial saludo.
 Por medio del presente, nos es grato confirmar su cita en el Consultorio Psicológico del CEPRUNSA, la cual se llevará a cabo de manera ${
-      formData.modality === "virtual" ? "virtual" : "presencial"
-    }. A continuación, le proporcionamos los detalles de su cita:
+        formData.modality === "virtual" ? "virtual" : "presencial"
+      }. A continuación, le proporcionamos los detalles de su cita:
 
 Fecha : ${formattedDate}
 Hora : ${formattedTime}
@@ -242,6 +309,10 @@ Agradecemos su puntualidad y compromiso.
 
 Atentamente,
 Consultorio Psicológico CEPRUNSA`;
+    } catch (error) {
+      console.error("Error al generar mensaje:", error);
+      return "Error al generar el mensaje. Por favor, revise los datos de la cita.";
+    }
   };
 
   // Copiar mensaje al portapapeles - Implementación completamente nueva y robusta
@@ -295,6 +366,15 @@ Consultorio Psicológico CEPRUNSA`;
         "Error al copiar el mensaje. Intente seleccionarlo manualmente."
       );
     }
+  };
+
+  // Mostrar la fecha actual en formato legible usando UTC
+  const getCurrentDateFormatted = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   };
 
   if (
@@ -539,7 +619,10 @@ Consultorio Psicológico CEPRUNSA`;
                   htmlFor="date"
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
-                  Fecha *
+                  Fecha *{" "}
+                  <span className="text-xs text-gray-500">
+                    (Formato: YYYY-MM-DD)
+                  </span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -549,12 +632,18 @@ Consultorio Psicológico CEPRUNSA`;
                     type="date"
                     id="date"
                     name="date"
-                    value={formData.date || ""}
+                    value={formData.date || getCurrentDateFormatted()}
                     onChange={handleChange}
                     required
+                    min={getCurrentDateFormatted()}
                     className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
+                {formData.date && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    {formatDate(formData.date)}
+                  </div>
+                )}
               </div>
               <div className="flex-1">
                 <label

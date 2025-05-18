@@ -388,7 +388,9 @@ const Dashboard = () => {
                           {appointment.client?.fullName}
                         </p>
                         <div className="text-sm font-medium text-green-600">
-                          {new Date(appointment.date).toLocaleDateString()}
+                          {new Date(
+                            appointment.date + "T00:00:00"
+                          ).toLocaleDateString()}
                         </div>
                       </div>
                       <div className="mt-2 flex items-center text-sm text-gray-500">

@@ -463,7 +463,9 @@ const Appointments = () => {
                   <div className="lg:col-span-2">
                     <div className="flex flex-col">
                       <div className="text-sm text-gray-900">
-                        {new Date(appointment.date).toLocaleDateString()}
+                        {new Date(
+                          appointment.date + "T00:00:00"
+                        ).toLocaleDateString()}
                       </div>
                       <div className="text-xs text-gray-500">
                         {appointment.time}
@@ -594,8 +596,9 @@ const Appointments = () => {
                     <div>
                       <p className="text-xs text-gray-500">Fecha y hora:</p>
                       <p className="text-sm">
-                        {new Date(appointment.date).toLocaleDateString()} -{" "}
-                        {appointment.time}
+                        {new Date(
+                          appointment.date + "T00:00:00"
+                        ).toLocaleDateString()}
                       </p>
                     </div>
                     {!isPsychologist && (
@@ -737,7 +740,7 @@ const Appointments = () => {
                         programada para el{" "}
                         <span className="font-semibold">
                           {new Date(
-                            appointmentToDelete.date
+                            appointmentToDelete.date + "T00:00:00"
                           ).toLocaleDateString()}{" "}
                           a las {appointmentToDelete.time}
                         </span>
