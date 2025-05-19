@@ -43,7 +43,9 @@ const Dashboard = () => {
   );
 
   // Obtener citas para hoy
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
+    .toISOString()
+    .split("T")[0];
   const todayAppointments = appointments.filter((app) => app.date === today);
 
   // Obtener próximas citas (futuras)
