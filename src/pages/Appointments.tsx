@@ -1,6 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import {
+  useState,
+  useEffect,
+  type JSXElementConstructor,
+  type Key,
+  type ReactElement,
+  type ReactNode,
+  type ReactPortal,
+} from "react";
 import { Link } from "react-router-dom";
 import { useAppointments } from "../hooks/useAppointments";
 import { usePsychologists } from "../hooks/usePsychologists";
@@ -11,15 +19,18 @@ import {
   Plus,
   Search,
   Filter,
-  Eye,
-  Edit,
   Trash2,
-  CheckCircle,
   XCircle,
   AlertCircle,
+  Info,
+  FileText,
 } from "lucide-react";
 import type { Appointment } from "../types";
 import toast from "react-hot-toast";
+import { ExportModal } from "../components/ExportModal";
+import { FileSpreadsheet } from "lucide-react";
+import { AppointmentActionsMenu } from "../components/AppointmentActionsMenu";
+import { AppointmentStatusBadge } from "../components/AppointmentStatusBadge";
 
 const Appointments = () => {
   const {
@@ -43,6 +54,10 @@ const Appointments = () => {
   const [selectedDate, setSelectedDate] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
   // Estado para modal de confirmación
   const [appointmentToDelete, setAppointmentToDelete] =
     useState<Appointment | null>(null);
@@ -50,6 +65,9 @@ const Appointments = () => {
     appointment: Appointment | null;
     newStatus: Appointment["status"] | null;
   }>({ appointment: null, newStatus: null });
+
+  // Estado para modal de exportación
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Debugging
   useEffect(() => {
@@ -60,7 +78,7 @@ const Appointments = () => {
   }, [user, isPsychologist, appointments]);
 
   // Filtrar citas
-  const filteredAppointments = appointments
+  const allFilteredAppointments = appointments
     .filter((appointment) => {
       // Filtro por término de búsqueda (nombre del cliente o DNI)
       if (
@@ -110,6 +128,28 @@ const Appointments = () => {
       }
       return a.time.localeCompare(b.time);
     });
+
+  // Calcular paginación
+  const totalItems = allFilteredAppointments.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const filteredAppointments = allFilteredAppointments.slice(
+    startIndex,
+    endIndex
+  );
+
+  // Resetear página cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    searchTerm,
+    selectedPsychologist,
+    selectedProcess,
+    selectedReason,
+    selectedStatus,
+    selectedDate,
+  ]);
 
   const handleDeleteClick = (appointment: Appointment) => {
     if (!isAdmin && !isCoordinator) {
@@ -172,34 +212,59 @@ const Appointments = () => {
     setAppointmentToChangeStatus({ appointment: null, newStatus: null });
   };
 
-  const getStatusBadgeClasses = (status: string) => {
-    switch (status) {
-      case "scheduled":
-        return "bg-blue-100 text-blue-800 border border-blue-200";
-      case "completed":
-        return "bg-green-100 text-green-800 border border-green-200";
-      case "cancelled":
-        return "bg-red-100 text-red-800 border border-red-200";
-      case "no-show":
-        return "bg-yellow-100 text-yellow-800 border border-yellow-200";
-      default:
-        return "bg-gray-100 text-gray-800 border border-gray-200";
-    }
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const getStatusDisplayName = (status: string) => {
-    switch (status) {
-      case "scheduled":
-        return "Programada";
-      case "completed":
-        return "Completada";
-      case "cancelled":
-        return "Cancelada";
-      case "no-show":
-        return "No asistió";
-      default:
-        return "Desconocido";
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1);
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push("...");
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push("...");
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      }
     }
+    return pages;
+  };
+
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (searchTerm) count++;
+    if (selectedPsychologist) count++;
+    if (selectedProcess) count++;
+    if (selectedReason) count++;
+    if (selectedStatus) count++;
+    if (selectedDate) count++;
+    return count;
   };
 
   if (
@@ -271,6 +336,13 @@ const Appointments = () => {
             <Filter size={18} className="mr-1 md:mr-2" />
             <span>{showFilters ? "Ocultar filtros" : "Mostrar filtros"}</span>
           </button>
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="btn btn-success inline-flex items-center"
+          >
+            <FileSpreadsheet size={18} className="mr-1 md:mr-2" />
+            <span>Exportar Excel</span>
+          </button>
           {(isAdmin || isCoordinator) && (
             <Link
               to="/appointments/new"
@@ -306,7 +378,7 @@ const Appointments = () => {
               onChange={(e) => setSelectedDate(e.target.value)}
             />
             <select
-              className="block w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
             >
@@ -332,7 +404,7 @@ const Appointments = () => {
                 </label>
                 <select
                   id="psychologist"
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   value={selectedPsychologist}
                   onChange={(e) => setSelectedPsychologist(e.target.value)}
                 >
@@ -354,7 +426,7 @@ const Appointments = () => {
               </label>
               <select
                 id="process"
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 value={selectedProcess}
                 onChange={(e) => setSelectedProcess(e.target.value)}
               >
@@ -375,7 +447,7 @@ const Appointments = () => {
               </label>
               <select
                 id="reason"
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 value={selectedReason}
                 onChange={(e) => setSelectedReason(e.target.value)}
               >
@@ -391,9 +463,27 @@ const Appointments = () => {
         )}
       </div>
 
+      {/* Mensaje informativo */}
+      {(isAdmin || isCoordinator || isPsychologist) && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+          <div className="flex">
+            <Info className="h-5 w-5 text-blue-400 mt-0.5" />
+            <div className="ml-3">
+              <p className="text-sm text-blue-700">
+                <strong>Nota importante:</strong> Para completar una cita, debe
+                acceder a los detalles de la cita y llenar obligatoriamente
+                todos los campos: Diagnóstico Psicológico, Recomendaciones y
+                Resultados. Los documentos PDF pueden subirse manualmente desde
+                los detalles de cada cita.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Lista de citas */}
       <div className="bg-white shadow rounded-lg overflow-hidden border border-gray-100">
-        {filteredAppointments.length === 0 ? (
+        {allFilteredAppointments.length === 0 ? (
           <div className="p-8 text-center">
             <div className="mb-4 flex justify-center">
               <div className="rounded-full bg-gray-100 p-3">
@@ -408,301 +498,293 @@ const Appointments = () => {
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
-            {/* Encabezado de la tabla (solo visible en pantallas grandes) */}
-            <div className="hidden lg:grid lg:grid-cols-12 bg-gray-50 px-6 py-3 rounded-t-lg">
-              <div className="lg:col-span-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Cliente
+          <>
+            {/* Información de paginación y selector de elementos por página */}
+            <div className="bg-gray-50 px-6 py-3 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-gray-700">
+                  Mostrando {startIndex + 1} - {Math.min(endIndex, totalItems)}{" "}
+                  de {totalItems} resultados
+                </div>
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="itemsPerPage"
+                    className="text-sm text-gray-700"
+                  >
+                    Mostrar:
+                  </label>
+                  <select
+                    id="itemsPerPage"
+                    value={itemsPerPage}
+                    onChange={(e) =>
+                      handleItemsPerPageChange(Number(e.target.value))
+                    }
+                    className="text-sm border border-gray-300 rounded pl-2 pr-6 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
               </div>
-              <div className="lg:col-span-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Fecha y Hora
-              </div>
-              {!isPsychologist && (
-                <div className="lg:col-span-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Psicólogo
+
+              {/* Navegación de páginas */}
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Anterior
+                  </button>
+
+                  {getPageNumbers().map(
+                    (
+                      page:
+                        | string
+                        | number
+                        | bigint
+                        | boolean
+                        | ReactElement<
+                            unknown,
+                            string | JSXElementConstructor<any>
+                          >
+                        | Iterable<ReactNode>
+                        | Promise<
+                            | string
+                            | number
+                            | bigint
+                            | boolean
+                            | ReactPortal
+                            | ReactElement<
+                                unknown,
+                                string | JSXElementConstructor<any>
+                              >
+                            | Iterable<ReactNode>
+                            | null
+                            | undefined
+                          >
+                        | null
+                        | undefined,
+                      index: Key | null | undefined
+                    ) => (
+                      <button
+                        key={index}
+                        onClick={() =>
+                          typeof page === "number" && handlePageChange(page)
+                        }
+                        disabled={page === "..."}
+                        className={`px-3 py-1 text-sm border border-gray-300 rounded ${
+                          page === currentPage
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : page === "..."
+                            ? "cursor-default"
+                            : "hover:bg-gray-50"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    )
+                  )}
+
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Siguiente
+                  </button>
                 </div>
               )}
-              <div
-                className={`lg:col-span-${
-                  isPsychologist ? "4" : "2"
-                } text-left text-xs font-medium text-gray-500 uppercase tracking-wider`}
-              >
-                Motivo
-              </div>
-              <div className="lg:col-span-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Estado
-              </div>
-              <div className="lg:col-span-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Acciones
+            </div>
+
+            {/* Cabeceras de tabla - Solo en desktop */}
+            <div className="hidden lg:block bg-gray-50 border-b border-gray-200">
+              <div className="grid grid-cols-12 gap-4 px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <div className="col-span-3">Cliente</div>
+                <div className="col-span-2">Fecha y Hora</div>
+                {!isPsychologist && <div className="col-span-2">Psicólogo</div>}
+                <div className={`col-span-${isPsychologist ? "4" : "2"}`}>
+                  Motivo de Consulta
+                </div>
+                <div className="col-span-1">Estado</div>
+                <div className="col-span-2 text-right">Acciones</div>
               </div>
             </div>
 
-            {/* Filas de citas */}
-            {filteredAppointments.map((appointment) => (
-              <div
-                key={appointment.id}
-                className="p-4 lg:p-0 hover:bg-gray-50 transition-colors duration-150"
-              >
-                {/* Vista para pantallas grandes (similar a tabla) */}
-                <div className="hidden lg:grid lg:grid-cols-12 lg:items-center lg:px-6 lg:py-4">
+            <div className="divide-y divide-gray-200">
+              {filteredAppointments.map((appointment) => (
+                <div
+                  key={appointment.id}
+                  className="grid grid-cols-1 lg:grid-cols-12 gap-4 px-4 lg:px-6 py-4 hover:bg-gray-50 transition-colors"
+                >
+                  {/* Información del cliente */}
                   <div className="lg:col-span-3">
                     <div className="flex flex-col">
                       <div className="text-sm font-medium text-gray-900">
                         {appointment.client.fullName}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-sm text-gray-500">
                         DNI: {appointment.client.dni}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-sm text-gray-500">
                         {appointment.client.situation === "ceprunsa"
-                          ? "Postulante CEPRUNSA"
+                          ? "CEPRUNSA"
                           : "Particular"}
                       </div>
                     </div>
                   </div>
+
+                  {/* Fecha y hora */}
                   <div className="lg:col-span-2">
                     <div className="flex flex-col">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm font-medium text-gray-900">
                         {new Date(
                           appointment.date + "T00:00:00"
                         ).toLocaleDateString()}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-sm text-gray-500">
                         {appointment.time}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-sm text-gray-500">
                         {appointment.modality === "presential"
                           ? "Presencial"
                           : "Virtual"}
                       </div>
                     </div>
                   </div>
+
+                  {/* Psicólogo (solo si no es psicólogo) */}
                   {!isPsychologist && (
-                    <div className="lg:col-span-2 text-sm text-gray-900">
-                      {appointment.psychologistName}
+                    <div className="lg:col-span-2">
+                      <div className="text-sm font-medium text-gray-900">
+                        {appointment.psychologistName}
+                      </div>
                     </div>
                   )}
-                  <div
-                    className={`lg:col-span-${
-                      isPsychologist ? "4" : "2"
-                    } text-sm text-gray-900`}
-                  >
-                    {appointment.reasonName}
+
+                  {/* Motivo */}
+                  <div className={`lg:col-span-${isPsychologist ? "4" : "2"}`}>
+                    <div className="text-sm text-gray-900">
+                      {appointment.reasonName}
+                    </div>
+                    {appointment.processName && (
+                      <div className="text-sm text-gray-500">
+                        Proceso: {appointment.processName}
+                      </div>
+                    )}
                   </div>
+
+                  {/* Estado */}
                   <div className="lg:col-span-1">
-                    <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeClasses(
-                        appointment.status
-                      )}`}
-                    >
-                      {getStatusDisplayName(appointment.status)}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <AppointmentStatusBadge
+                        status={appointment.status}
+                        size="sm"
+                      />
+                      {/* Indicador de documento */}
+                      {appointment.document && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 w-fit">
+                          <FileText size={12} className="mr-1" />
+                          PDF
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="lg:col-span-2 text-right flex justify-end space-x-2">
-                    <Link
-                      to={`/appointments/${appointment.id}`}
-                      className="p-2 rounded-md text-blue-600 hover:bg-blue-50 transition-colors duration-200"
-                      title="Ver detalles"
-                    >
-                      <Eye size={18} />
-                    </Link>
-                    {(isAdmin ||
-                      isCoordinator ||
-                      (isPsychologist &&
-                        appointment.status === "scheduled")) && (
-                      <>
-                        {(isAdmin || isCoordinator) && (
-                          <Link
-                            to={`/appointments/${appointment.id}/edit`}
-                            className="p-2 rounded-md text-green-600 hover:bg-green-50 transition-colors duration-200"
-                            title="Editar cita"
-                          >
-                            <Edit size={18} />
-                          </Link>
-                        )}
-                        {appointment.status === "scheduled" && (
-                          <>
-                            <button
-                              onClick={() =>
-                                handleChangeStatusClick(
-                                  appointment,
-                                  "completed"
-                                )
-                              }
-                              className="p-2 rounded-md text-green-600 hover:bg-green-50 transition-colors duration-200"
-                              title="Marcar como completada"
-                            >
-                              <CheckCircle size={18} />
-                            </button>
-                            {(isAdmin || isCoordinator) && (
-                              <button
-                                onClick={() =>
-                                  handleChangeStatusClick(
-                                    appointment,
-                                    "cancelled"
-                                  )
-                                }
-                                className="p-2 rounded-md text-red-600 hover:bg-red-50 transition-colors duration-200"
-                                title="Cancelar cita"
-                              >
-                                <XCircle size={18} />
-                              </button>
-                            )}
-                            <button
-                              onClick={() =>
-                                handleChangeStatusClick(appointment, "no-show")
-                              }
-                              className="p-2 rounded-md text-yellow-600 hover:bg-yellow-50 transition-colors duration-200"
-                              title="Marcar como no asistió"
-                            >
-                              <AlertCircle size={18} />
-                            </button>
-                          </>
-                        )}
-                      </>
-                    )}
-                    {(isAdmin || isCoordinator) && (
-                      <button
-                        onClick={() => handleDeleteClick(appointment)}
-                        className="p-2 rounded-md text-red-600 hover:bg-red-50 transition-colors duration-200"
-                        title="Eliminar cita"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    )}
+
+                  {/* Acciones */}
+                  <div className="lg:col-span-2 flex justify-start lg:justify-end">
+                    <AppointmentActionsMenu
+                      appointment={appointment}
+                      isAdmin={isAdmin}
+                      isCoordinator={isCoordinator}
+                      isPsychologist={isPsychologist}
+                      onDelete={handleDeleteClick}
+                      onChangeStatus={handleChangeStatusClick}
+                    />
                   </div>
                 </div>
+              ))}
+            </div>
 
-                {/* Vista para pantallas pequeñas y medianas (tarjetas) */}
-                <div className="lg:hidden">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex flex-col">
-                      <div className="text-base font-medium text-gray-900">
-                        {appointment.client.fullName}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        DNI: {appointment.client.dni}
-                      </div>
-                    </div>
-                    <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeClasses(
-                        appointment.status
-                      )}`}
-                    >
-                      {getStatusDisplayName(appointment.status)}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mb-2">
-                    <div>
-                      <p className="text-xs text-gray-500">Fecha y hora:</p>
-                      <p className="text-sm">
-                        {new Date(
-                          appointment.date + "T00:00:00"
-                        ).toLocaleDateString()}
-                      </p>
-                    </div>
-                    {!isPsychologist && (
-                      <div>
-                        <p className="text-xs text-gray-500">Psicólogo:</p>
-                        <p className="text-sm">
-                          {appointment.psychologistName}
-                        </p>
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-xs text-gray-500">Motivo:</p>
-                      <p className="text-sm">{appointment.reasonName}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Modalidad:</p>
-                      <p className="text-sm">
-                        {appointment.modality === "presential"
-                          ? "Presencial"
-                          : "Virtual"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex justify-end space-x-2 mt-3 border-t pt-3">
-                    <Link
-                      to={`/appointments/${appointment.id}`}
-                      className="p-2 rounded-md text-blue-600 hover:bg-blue-50 transition-colors duration-200"
-                      title="Ver detalles"
-                    >
-                      <Eye size={18} />
-                    </Link>
-                    {(isAdmin ||
-                      isCoordinator ||
-                      (isPsychologist &&
-                        appointment.status === "scheduled")) && (
-                      <>
-                        {(isAdmin || isCoordinator) && (
-                          <Link
-                            to={`/appointments/${appointment.id}/edit`}
-                            className="p-2 rounded-md text-green-600 hover:bg-green-50 transition-colors duration-200"
-                            title="Editar cita"
+            {/* Paginación inferior */}
+            {totalPages > 1 && (
+              <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex justify-center">
+                <div className="flex items-center gap-1 flex-wrap">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Anterior
+                  </button>
+
+                  {getPageNumbers().map(
+                    (
+                      page:
+                        | string
+                        | number
+                        | bigint
+                        | boolean
+                        | ReactElement<
+                            unknown,
+                            string | JSXElementConstructor<any>
                           >
-                            <Edit size={18} />
-                          </Link>
-                        )}
-                        {appointment.status === "scheduled" && (
-                          <>
-                            <button
-                              onClick={() =>
-                                handleChangeStatusClick(
-                                  appointment,
-                                  "completed"
-                                )
-                              }
-                              className="p-2 rounded-md text-green-600 hover:bg-green-50 transition-colors duration-200"
-                              title="Marcar como completada"
-                            >
-                              <CheckCircle size={18} />
-                            </button>
-                            {(isAdmin || isCoordinator) && (
-                              <button
-                                onClick={() =>
-                                  handleChangeStatusClick(
-                                    appointment,
-                                    "cancelled"
-                                  )
-                                }
-                                className="p-2 rounded-md text-red-600 hover:bg-red-50 transition-colors duration-200"
-                                title="Cancelar cita"
+                        | Iterable<ReactNode>
+                        | Promise<
+                            | string
+                            | number
+                            | bigint
+                            | boolean
+                            | ReactPortal
+                            | ReactElement<
+                                unknown,
+                                string | JSXElementConstructor<any>
                               >
-                                <XCircle size={18} />
-                              </button>
-                            )}
-                            <button
-                              onClick={() =>
-                                handleChangeStatusClick(appointment, "no-show")
-                              }
-                              className="p-2 rounded-md text-yellow-600 hover:bg-yellow-50 transition-colors duration-200"
-                              title="Marcar como no asistió"
-                            >
-                              <AlertCircle size={18} />
-                            </button>
-                          </>
-                        )}
-                      </>
-                    )}
-                    {(isAdmin || isCoordinator) && (
+                            | Iterable<ReactNode>
+                            | null
+                            | undefined
+                          >
+                        | null
+                        | undefined,
+                      index: Key | null | undefined
+                    ) => (
                       <button
-                        onClick={() => handleDeleteClick(appointment)}
-                        className="p-2 rounded-md text-red-600 hover:bg-red-50 transition-colors duration-200"
-                        title="Eliminar cita"
+                        key={index}
+                        onClick={() =>
+                          typeof page === "number" && handlePageChange(page)
+                        }
+                        disabled={page === "..."}
+                        className={`px-3 py-1 text-sm border border-gray-300 rounded ${
+                          page === currentPage
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : page === "..."
+                            ? "cursor-default"
+                            : "hover:bg-gray-50"
+                        }`}
                       >
-                        <Trash2 size={18} />
+                        {page}
                       </button>
-                    )}
-                  </div>
+                    )
+                  )}
+
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Siguiente
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* Modal de confirmación de eliminación */}
+      {/* Modal de confirmación para eliminar */}
       {appointmentToDelete && (
         <div className="fixed z-50 inset-0 overflow-y-auto">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -734,17 +816,8 @@ const Appointments = () => {
                     <div className="mt-2">
                       <p className="text-sm text-gray-500">
                         ¿Estás seguro de que deseas eliminar la cita de{" "}
-                        <span className="font-semibold">
-                          {appointmentToDelete.client.fullName}
-                        </span>{" "}
-                        programada para el{" "}
-                        <span className="font-semibold">
-                          {new Date(
-                            appointmentToDelete.date + "T00:00:00"
-                          ).toLocaleDateString()}{" "}
-                          a las {appointmentToDelete.time}
-                        </span>
-                        ? Esta acción no se puede deshacer.
+                        <strong>{appointmentToDelete.client.fullName}</strong>?
+                        Esta acción no se puede deshacer.
                       </p>
                     </div>
                   </div>
@@ -771,7 +844,7 @@ const Appointments = () => {
         </div>
       )}
 
-      {/* Modal de confirmación de cambio de estado */}
+      {/* Modal de confirmación para cambio de estado */}
       {appointmentToChangeStatus.appointment &&
         appointmentToChangeStatus.newStatus && (
           <div className="fixed z-50 inset-0 overflow-y-auto">
@@ -792,10 +865,7 @@ const Appointments = () => {
                 <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                   <div className="sm:flex sm:items-start">
                     <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-                      {appointmentToChangeStatus.newStatus === "completed" ? (
-                        <CheckCircle className="h-6 w-6 text-green-600" />
-                      ) : appointmentToChangeStatus.newStatus ===
-                        "cancelled" ? (
+                      {appointmentToChangeStatus.newStatus === "cancelled" ? (
                         <XCircle className="h-6 w-6 text-red-600" />
                       ) : (
                         <AlertCircle className="h-6 w-6 text-yellow-600" />
@@ -806,35 +876,25 @@ const Appointments = () => {
                         className="text-lg leading-6 font-medium text-gray-900"
                         id="modal-title"
                       >
-                        Cambiar estado de la cita
+                        {appointmentToChangeStatus.newStatus === "cancelled"
+                          ? "Cancelar cita"
+                          : "Marcar como no asistió"}
                       </h3>
                       <div className="mt-2">
                         <p className="text-sm text-gray-500">
-                          ¿Estás seguro de que deseas marcar la cita de{" "}
-                          <span className="font-semibold">
+                          ¿Estás seguro de que deseas{" "}
+                          {appointmentToChangeStatus.newStatus === "cancelled"
+                            ? "cancelar la cita"
+                            : "marcar la cita como no asistió"}{" "}
+                          de{" "}
+                          <strong>
                             {
                               appointmentToChangeStatus.appointment.client
                                 .fullName
                             }
-                          </span>{" "}
-                          como{" "}
-                          <span className="font-semibold">
-                            {getStatusDisplayName(
-                              appointmentToChangeStatus.newStatus
-                            )}
-                          </span>
+                          </strong>
                           ?
                         </p>
-                        {appointmentToChangeStatus.newStatus ===
-                          "completed" && (
-                          <div className="mt-3">
-                            <p className="text-sm text-gray-700 mb-2">
-                              Puedes agregar notas sobre la consulta en la
-                              página de detalles después de marcarla como
-                              completada.
-                            </p>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -843,9 +903,7 @@ const Appointments = () => {
                   <button
                     type="button"
                     className={`btn ${
-                      appointmentToChangeStatus.newStatus === "completed"
-                        ? "btn-primary"
-                        : appointmentToChangeStatus.newStatus === "cancelled"
+                      appointmentToChangeStatus.newStatus === "cancelled"
                         ? "btn-danger"
                         : "btn-warning"
                     } sm:ml-3`}
@@ -865,6 +923,13 @@ const Appointments = () => {
             </div>
           </div>
         )}
+      {/* Modal de exportación */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        appointments={allFilteredAppointments}
+        currentFiltersCount={getActiveFiltersCount()}
+      />
     </div>
   );
 };

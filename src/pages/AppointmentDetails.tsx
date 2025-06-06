@@ -23,15 +23,22 @@ import {
   Clipboard,
   Tag,
   Info,
+  Upload,
 } from "lucide-react";
 import type { Appointment } from "../types";
 import toast from "react-hot-toast";
+import DocumentUpload from "../components/DocumentUpload";
 
 const AppointmentDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { appointmentByIdQuery, deleteAppointment, updateAppointmentStatus } =
-    useAppointments();
+  const {
+    appointmentByIdQuery,
+    deleteAppointment,
+    updateAppointmentStatus,
+    uploadDocument,
+    isUploadingDocument,
+  } = useAppointments();
   const { isAdmin, isCoordinator, isPsychologist } = useAuth();
 
   const { data: appointment, isLoading, isError } = appointmentByIdQuery(id);
@@ -43,6 +50,7 @@ const AppointmentDetails = () => {
     status: Appointment["status"] | null;
   }>({ show: false, status: null });
   const [showResultsModal, setShowResultsModal] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
 
   // Estado para formulario de resultados
   const [resultsForm, setResultsForm] = useState({
@@ -51,6 +59,13 @@ const AppointmentDetails = () => {
     conclusions: "",
   });
 
+  // Estado para errores de validación
+  const [validationErrors, setValidationErrors] = useState<{
+    diagnosis?: string;
+    recommendations?: string;
+    conclusions?: string;
+  }>({});
+
   // Manejar cambios en el formulario de resultados
   const handleResultsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -58,6 +73,14 @@ const AppointmentDetails = () => {
       ...prev,
       [name]: value,
     }));
+
+    // Limpiar error de validación cuando el usuario empiece a escribir
+    if (validationErrors[name as keyof typeof validationErrors]) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        [name]: undefined,
+      }));
+    }
   };
 
   // Cargar datos de resultados si existen
@@ -70,6 +93,26 @@ const AppointmentDetails = () => {
       });
     }
   }, [appointment]);
+
+  // Validar formulario de resultados
+  const validateResultsForm = () => {
+    const errors: typeof validationErrors = {};
+
+    if (!resultsForm.diagnosis.trim()) {
+      errors.diagnosis = "El diagnóstico psicológico es obligatorio";
+    }
+
+    if (!resultsForm.recommendations.trim()) {
+      errors.recommendations = "Las recomendaciones son obligatorias";
+    }
+
+    if (!resultsForm.conclusions.trim()) {
+      errors.conclusions = "Los resultados son obligatorios";
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   // Manejar eliminación de cita
   const handleDelete = async () => {
@@ -107,16 +150,26 @@ const AppointmentDetails = () => {
 
   // Manejar guardado de resultados
   const handleSaveResults = async () => {
+    if (!validateResultsForm()) {
+      toast.error("Por favor, complete todos los campos obligatorios");
+      return;
+    }
+
     if (!id) return;
 
     try {
       await updateAppointmentStatus(id, "completed", resultsForm);
       setShowResultsModal(false);
-      toast.success("Resultados guardados exitosamente");
+      toast.success("Cita completada exitosamente con todos los resultados");
     } catch (error) {
       console.error("Error al guardar resultados:", error);
       toast.error("Error al guardar resultados");
     }
+  };
+
+  // Manejar subida de documento
+  const handleDocumentUpload = (appointmentId: string, file: File) => {
+    uploadDocument({ appointmentId, file });
   };
 
   // Funciones auxiliares
@@ -204,6 +257,19 @@ const AppointmentDetails = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {/* Botón para subir documento */}
+            <button
+              onClick={() => setShowDocumentModal(true)}
+              className="btn btn-secondary inline-flex items-center"
+            >
+              <Upload size={18} className="mr-2" />
+              <span>
+                {appointment.document
+                  ? "Gestionar Documento"
+                  : "Subir Documento"}
+              </span>
+            </button>
+
             {appointment?.status === "scheduled" && (
               <>
                 {(isAdmin || isCoordinator) && (
@@ -220,8 +286,8 @@ const AppointmentDetails = () => {
                     onClick={() => setShowResultsModal(true)}
                     className="btn btn-primary inline-flex items-center"
                   >
-                    <FileText size={18} className="mr-2" />
-                    <span>Registrar Resultados</span>
+                    <CheckCircle size={18} className="mr-2" />
+                    <span>Completar Cita</span>
                   </button>
                 )}
                 {(isAdmin || isCoordinator) && (
@@ -504,10 +570,10 @@ const AppointmentDetails = () => {
               <div className="p-6 space-y-4">
                 <div>
                   <p className="text-sm font-medium text-gray-700 mb-1">
-                    Diagnóstico
+                    Resultados
                   </p>
                   <p className="bg-gray-50 p-3 rounded-md text-gray-900">
-                    {appointment.diagnosis || "No se registró diagnóstico"}
+                    {appointment.conclusions || "No se registraron resultados"}
                   </p>
                 </div>
                 <div>
@@ -521,12 +587,47 @@ const AppointmentDetails = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-700 mb-1">
-                    Conclusiones
+                    Diagnóstico Psicológico
                   </p>
                   <p className="bg-gray-50 p-3 rounded-md text-gray-900">
-                    {appointment.conclusions ||
-                      "No se registraron conclusiones"}
+                    {appointment.diagnosis ||
+                      "No se registró diagnóstico psicológico"}
                   </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Documento asociado */}
+          {appointment.document && (
+            <div className="bg-white shadow rounded-lg overflow-hidden border border-gray-100 mb-6">
+              <div className="px-6 py-4 bg-gray-50 border-b">
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <FileText className="h-5 w-5 text-primary mr-2" />
+                  Documento Asociado
+                </h2>
+              </div>
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {appointment.document.originalName}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Subido el{" "}
+                      {new Date(
+                        appointment.document.uploadedAt
+                      ).toLocaleString()}
+                    </p>
+                  </div>
+                  <a
+                    href={appointment.document.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    Ver documento
+                  </a>
                 </div>
               </div>
             </div>
@@ -551,6 +652,66 @@ const AppointmentDetails = () => {
             )}
         </div>
       </div>
+
+      {/* Modal de gestión de documentos */}
+      {showDocumentModal && (
+        <div className="fixed z-50 inset-0 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div
+              className="fixed inset-0 transition-opacity"
+              aria-hidden="true"
+            >
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span
+              className="hidden sm:inline-block sm:align-middle sm:h-screen"
+              aria-hidden="true"
+            >
+              &#8203;
+            </span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <Upload className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
+                    <h3
+                      className="text-lg leading-6 font-medium text-gray-900"
+                      id="modal-title"
+                    >
+                      Gestionar Documento de la Cita
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        Sube un documento PDF que se asociará permanentemente a
+                        esta cita.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <DocumentUpload
+                    appointmentId={appointment.id}
+                    currentDocument={appointment.document}
+                    onUpload={handleDocumentUpload}
+                    isUploading={isUploadingDocument}
+                  />
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  className="btn btn-secondary mt-3 sm:mt-0 sm:ml-3"
+                  onClick={() => setShowDocumentModal(false)}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de eliminación */}
       {showDeleteModal && (
@@ -704,78 +865,118 @@ const AppointmentDetails = () => {
             >
               &#8203;
             </span>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100 sm:mx-0 sm:h-10 sm:w-10">
                     <CheckCircle className="h-6 w-6 text-green-600" />
                   </div>
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-1">
                     <h3
                       className="text-lg leading-6 font-medium text-gray-900"
                       id="modal-title"
                     >
-                      Registrar resultados de la cita
+                      Completar cita - Registrar resultados
                     </h3>
                     <div className="mt-2">
                       <p className="text-sm text-gray-500">
-                        Complete los siguientes campos para registrar los
-                        resultados de la cita.
+                        Complete todos los campos obligatorios para finalizar la
+                        cita. Todos los campos son requeridos.
                       </p>
                     </div>
                   </div>
                 </div>
-                <div className="mt-4 space-y-4">
+                <div className="mt-6 space-y-6">
                   <div>
                     <label
-                      htmlFor="diagnosis"
+                      htmlFor="conclusions"
                       className="block text-sm font-medium text-gray-700 mb-1"
                     >
-                      Diagnóstico
+                      Resultados <span className="text-red-500">*</span>
                     </label>
                     <textarea
-                      id="diagnosis"
-                      name="diagnosis"
-                      rows={3}
-                      value={resultsForm.diagnosis}
+                      id="conclusions"
+                      name="conclusions"
+                      rows={4}
+                      value={resultsForm.conclusions}
                       onChange={handleResultsChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Ingrese el diagnóstico del paciente"
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        validationErrors.conclusions
+                          ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                          : "border-gray-300 focus:border-blue-500"
+                      }`}
+                      placeholder="Ingrese los resultados y conclusiones de la consulta..."
                     ></textarea>
+                    {validationErrors.conclusions && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {validationErrors.conclusions}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label
                       htmlFor="recommendations"
                       className="block text-sm font-medium text-gray-700 mb-1"
                     >
-                      Recomendaciones
+                      Recomendaciones <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       id="recommendations"
                       name="recommendations"
-                      rows={3}
+                      rows={4}
                       value={resultsForm.recommendations}
                       onChange={handleResultsChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Ingrese las recomendaciones para el paciente"
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        validationErrors.recommendations
+                          ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                          : "border-gray-300 focus:border-blue-500"
+                      }`}
+                      placeholder="Ingrese las recomendaciones específicas para el paciente..."
                     ></textarea>
+                    {validationErrors.recommendations && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {validationErrors.recommendations}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label
-                      htmlFor="conclusions"
+                      htmlFor="diagnosis"
                       className="block text-sm font-medium text-gray-700 mb-1"
                     >
-                      Conclusiones
+                      Diagnóstico Psicológico{" "}
+                      <span className="text-red-500">*</span>
                     </label>
                     <textarea
-                      id="conclusions"
-                      name="conclusions"
-                      rows={3}
-                      value={resultsForm.conclusions}
+                      id="diagnosis"
+                      name="diagnosis"
+                      rows={4}
+                      value={resultsForm.diagnosis}
                       onChange={handleResultsChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Ingrese las conclusiones de la consulta"
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        validationErrors.diagnosis
+                          ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                          : "border-gray-300 focus:border-blue-500"
+                      }`}
+                      placeholder="Ingrese el diagnóstico psicológico detallado del paciente..."
                     ></textarea>
+                    {validationErrors.diagnosis && (
+                      <p className="mt-1 text-sm text-red-600">
+                        {validationErrors.diagnosis}
+                      </p>
+                    )}
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                    <div className="flex">
+                      <Info className="h-5 w-5 text-blue-400 mt-0.5" />
+                      <div className="ml-3">
+                        <p className="text-sm text-blue-700">
+                          <strong>Importante:</strong> Todos los campos son
+                          obligatorios para completar la cita. Asegúrese de
+                          proporcionar información detallada y precisa.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -785,12 +986,15 @@ const AppointmentDetails = () => {
                   className="btn btn-primary sm:ml-3"
                   onClick={handleSaveResults}
                 >
-                  Guardar y Completar
+                  Completar Cita
                 </button>
                 <button
                   type="button"
                   className="btn btn-secondary mt-3 sm:mt-0 sm:ml-3"
-                  onClick={() => setShowResultsModal(false)}
+                  onClick={() => {
+                    setShowResultsModal(false);
+                    setValidationErrors({});
+                  }}
                 >
                   Cancelar
                 </button>

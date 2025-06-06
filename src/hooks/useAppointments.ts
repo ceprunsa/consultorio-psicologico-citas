@@ -17,6 +17,7 @@ import { useAuth } from "./useAuth";
 import type { Appointment, AppointmentsHookReturn } from "../types";
 import { useMemo } from "react";
 import toast from "react-hot-toast";
+import { uploadPDFDocument } from "../utils/fileUpload";
 
 export const useAppointments = (): AppointmentsHookReturn => {
   const queryClient = useQueryClient();
@@ -145,12 +146,16 @@ export const useAppointments = (): AppointmentsHookReturn => {
   ): Promise<string> => {
     try {
       const appointmentRef = doc(db, "appointments", id);
-      await updateDoc(appointmentRef, {
+
+      // Actualizar la cita en Firestore (sin generar PDF automáticamente)
+      const updateData: any = {
         status,
         ...(data || {}),
         updatedAt: new Date().toISOString(),
         updatedBy: user?.email || "system",
-      });
+      };
+
+      await updateDoc(appointmentRef, updateData);
 
       const statusMessages = {
         scheduled: "programada",
@@ -167,6 +172,41 @@ export const useAppointments = (): AppointmentsHookReturn => {
         error instanceof Error
           ? error.message
           : "Error al actualizar estado de la cita"
+      );
+      throw error;
+    }
+  };
+
+  // Subir documento PDF a una cita
+  const uploadDocumentToAppointment = async (
+    appointmentId: string,
+    file: File
+  ): Promise<void> => {
+    try {
+      if (!user?.email) {
+        throw new Error("Usuario no autenticado");
+      }
+
+      // Subir archivo y obtener información del documento
+      const documentInfo = await uploadPDFDocument(
+        file,
+        appointmentId,
+        user.email
+      );
+
+      // Actualizar la cita con la información del documento
+      const appointmentRef = doc(db, "appointments", appointmentId);
+      await updateDoc(appointmentRef, {
+        document: documentInfo,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user.email,
+      });
+
+      toast.success("Documento subido exitosamente");
+    } catch (error) {
+      console.error("Error al subir documento:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Error al subir documento"
       );
       throw error;
     }
@@ -220,6 +260,19 @@ export const useAppointments = (): AppointmentsHookReturn => {
     },
   });
 
+  const uploadDocumentMutation = useMutation({
+    mutationFn: ({
+      appointmentId,
+      file,
+    }: {
+      appointmentId: string;
+      file: File;
+    }) => uploadDocumentToAppointment(appointmentId, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+    },
+  });
+
   const memoizedAppointmentByIdQuery = useMemo(
     () => useAppointmentByIdQuery,
     []
@@ -261,9 +314,11 @@ export const useAppointments = (): AppointmentsHookReturn => {
       status: Appointment["status"],
       data?: Partial<Appointment>
     ) => updateAppointmentStatusMutation.mutate({ id, status, data }),
+    uploadDocument: uploadDocumentMutation.mutate,
     isSaving: saveAppointmentMutation.isPending,
     isDeleting: deleteAppointmentMutation.isPending,
     isUpdatingStatus: updateAppointmentStatusMutation.isPending,
+    isUploadingDocument: uploadDocumentMutation.isPending,
     filterByPsychologist,
     filterByDateRange,
     filterByStatus,

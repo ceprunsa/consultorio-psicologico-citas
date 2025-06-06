@@ -85,6 +85,18 @@ export interface Client {
   email: string;
 }
 
+// Documento asociado a la cita
+export interface AppointmentDocument {
+  id: string;
+  fileName: string;
+  originalName: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
+  uploadedAt: string;
+  uploadedBy: string;
+}
+
 // Cita psicológica
 export interface Appointment {
   id: string;
@@ -107,10 +119,25 @@ export interface Appointment {
   psychologistId: string;
   psychologistName: string;
   status: "scheduled" | "completed" | "cancelled" | "no-show";
+  /**
+   * Diagnóstico Psicológico del paciente
+   * Nota: En la UI se muestra como "Diagnóstico Psicológico"
+   */
   diagnosis?: string;
+  /**
+   * Recomendaciones para el paciente
+   */
   recommendations?: string;
+  /**
+   * Conclusiones de la consulta
+   * Nota: En la UI se muestra como "Resultados"
+   */
   conclusions?: string;
   cancellationReason?: string;
+  /**
+   * Documento PDF subido manualmente por el usuario
+   */
+  document?: AppointmentDocument;
   /**
    * Fecha y hora de creación en formato ISO 8601 completo
    */
@@ -180,9 +207,11 @@ export interface AppointmentsHookReturn {
     status: Appointment["status"],
     data?: Partial<Appointment>
   ) => void;
+  uploadDocument: (data: { appointmentId: string; file: File }) => void;
   isSaving: boolean;
   isDeleting: boolean;
   isUpdatingStatus: boolean;
+  isUploadingDocument: boolean;
   // Filtros
   filterByPsychologist: (psychologistId: string) => Appointment[];
   filterByDateRange: (startDate: string, endDate: string) => Appointment[];
