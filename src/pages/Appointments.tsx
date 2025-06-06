@@ -24,6 +24,8 @@ import {
   AlertCircle,
   Info,
   FileText,
+  CheckCircle,
+  ExternalLink,
 } from "lucide-react";
 import type { Appointment } from "../types";
 import toast from "react-hot-toast";
@@ -58,13 +60,15 @@ const Appointments = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Estado para modal de confirmación
+  // Estados para modales de confirmación
   const [appointmentToDelete, setAppointmentToDelete] =
     useState<Appointment | null>(null);
   const [appointmentToChangeStatus, setAppointmentToChangeStatus] = useState<{
     appointment: Appointment | null;
     newStatus: Appointment["status"] | null;
   }>({ appointment: null, newStatus: null });
+  const [appointmentToComplete, setAppointmentToComplete] =
+    useState<Appointment | null>(null);
 
   // Estado para modal de exportación
   const [showExportModal, setShowExportModal] = useState(false);
@@ -172,7 +176,30 @@ const Appointments = () => {
       toast.error("No tienes permisos para cancelar citas");
       return;
     }
+
+    // Si es completar, usar el modal específico
+    if (newStatus === "completed") {
+      handleCompleteClick(appointment);
+      return;
+    }
+
     setAppointmentToChangeStatus({ appointment, newStatus });
+  };
+
+  const handleCompleteClick = (appointment: Appointment) => {
+    setAppointmentToComplete(appointment);
+  };
+
+  // Verificar si una cita puede ser completada
+  const canCompleteAppointment = (appointment: Appointment) => {
+    return (
+      appointment.diagnosis &&
+      appointment.diagnosis.trim() !== "" &&
+      appointment.recommendations &&
+      appointment.recommendations.trim() !== "" &&
+      appointment.conclusions &&
+      appointment.conclusions.trim() !== ""
+    );
   };
 
   const confirmDelete = async () => {
@@ -204,12 +231,28 @@ const Appointments = () => {
     }
   };
 
+  const confirmComplete = async () => {
+    if (!appointmentToComplete) return;
+
+    try {
+      await updateAppointmentStatus(appointmentToComplete.id, "completed");
+      setAppointmentToComplete(null);
+      toast.success("Cita marcada como completada");
+    } catch (error) {
+      console.error("Error al completar cita:", error);
+    }
+  };
+
   const cancelDelete = () => {
     setAppointmentToDelete(null);
   };
 
   const cancelChangeStatus = () => {
     setAppointmentToChangeStatus({ appointment: null, newStatus: null });
+  };
+
+  const cancelComplete = () => {
+    setAppointmentToComplete(null);
   };
 
   const handlePageChange = (page: number) => {
@@ -471,10 +514,10 @@ const Appointments = () => {
             <div className="ml-3">
               <p className="text-sm text-blue-700">
                 <strong>Nota importante:</strong> Para completar una cita, debe
-                acceder a los detalles de la cita y llenar obligatoriamente
-                todos los campos: Diagnóstico Psicológico, Recomendaciones y
-                Resultados. Los documentos PDF pueden subirse manualmente desde
-                los detalles de cada cita.
+                tener registrados obligatoriamente: Diagnóstico Psicológico,
+                Recomendaciones y Resultados. Si faltan estos datos, debe
+                acceder a los detalles de la cita para completarlos antes de
+                marcarla como finalizada.
               </p>
             </div>
           </div>
@@ -844,7 +887,7 @@ const Appointments = () => {
         </div>
       )}
 
-      {/* Modal de confirmación para cambio de estado */}
+      {/* Modal de confirmación para cambio de estado (No asistió/Cancelar) */}
       {appointmentToChangeStatus.appointment &&
         appointmentToChangeStatus.newStatus && (
           <div className="fixed z-50 inset-0 overflow-y-auto">
@@ -923,13 +966,153 @@ const Appointments = () => {
             </div>
           </div>
         )}
+
+      {/* Modal específico para completar cita */}
+      {appointmentToComplete && (
+        <div className="fixed z-50 inset-0 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div
+              className="fixed inset-0 transition-opacity"
+              aria-hidden="true"
+            >
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span
+              className="hidden sm:inline-block sm:align-middle sm:h-screen"
+              aria-hidden="true"
+            >
+              &#8203;
+            </span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-green-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <CheckCircle className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3
+                      className="text-lg leading-6 font-medium text-gray-900"
+                      id="modal-title"
+                    >
+                      Completar cita
+                    </h3>
+                    <div className="mt-2">
+                      {canCompleteAppointment(appointmentToComplete) ? (
+                        <div>
+                          <p className="text-sm text-gray-500 mb-3">
+                            ¿Estás seguro de que deseas marcar como completada
+                            la cita de{" "}
+                            <strong>
+                              {appointmentToComplete.client.fullName}
+                            </strong>
+                            ?
+                          </p>
+                          <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                            <div className="flex">
+                              <CheckCircle className="h-5 w-5 text-green-400 mt-0.5" />
+                              <div className="ml-3">
+                                <p className="text-sm text-green-700">
+                                  La cita tiene todos los campos requeridos
+                                  completados:
+                                </p>
+                                <ul className="text-sm text-green-600 mt-1 list-disc list-inside">
+                                  <li>Diagnóstico Psicológico</li>
+                                  <li>Recomendaciones</li>
+                                  <li>Resultados</li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-sm text-gray-500 mb-3">
+                            No se puede completar la cita de{" "}
+                            <strong>
+                              {appointmentToComplete.client.fullName}
+                            </strong>
+                            porque faltan campos obligatorios.
+                          </p>
+                          <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-3">
+                            <div className="flex">
+                              <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
+                              <div className="ml-3">
+                                <p className="text-sm text-red-700 mb-2">
+                                  Campos faltantes:
+                                </p>
+                                <ul className="text-sm text-red-600 list-disc list-inside">
+                                  {(!appointmentToComplete.diagnosis ||
+                                    appointmentToComplete.diagnosis.trim() ===
+                                      "") && <li>Diagnóstico Psicológico</li>}
+                                  {(!appointmentToComplete.recommendations ||
+                                    appointmentToComplete.recommendations.trim() ===
+                                      "") && <li>Recomendaciones</li>}
+                                  {(!appointmentToComplete.conclusions ||
+                                    appointmentToComplete.conclusions.trim() ===
+                                      "") && <li>Resultados</li>}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                            <div className="flex">
+                              <Info className="h-5 w-5 text-blue-400 mt-0.5" />
+                              <div className="ml-3">
+                                <p className="text-sm text-blue-700">
+                                  Debe acceder a los detalles de la cita para
+                                  completar estos campos antes de marcarla como
+                                  finalizada.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                  {canCompleteAppointment(appointmentToComplete) ? (
+                    <button
+                      type="button"
+                      className="btn btn-success sm:ml-3"
+                      onClick={confirmComplete}
+                    >
+                      Completar Cita
+                    </button>
+                  ) : (
+                    <Link
+                      to={`/appointments/${appointmentToComplete.id}`}
+                      className="btn btn-primary sm:ml-3 inline-flex items-center"
+                      onClick={cancelComplete}
+                    >
+                      <ExternalLink size={16} className="mr-1" />
+                      Ir a Detalles
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-secondary mt-3 sm:mt-0 sm:ml-3"
+                    onClick={cancelComplete}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de exportación */}
-      <ExportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        appointments={allFilteredAppointments}
-        currentFiltersCount={getActiveFiltersCount()}
-      />
+      {showExportModal && (
+        <ExportModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          appointments={allFilteredAppointments}
+          currentFiltersCount={getActiveFiltersCount()}
+        />
+      )}
     </div>
   );
 };

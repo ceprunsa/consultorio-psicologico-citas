@@ -125,7 +125,10 @@ export const AppointmentActionsMenu = ({
     primaryActions.push(
       <button
         key="complete"
-        onClick={() => onChangeStatus(appointment, "completed")}
+        onClick={() => {
+          console.log("maracado para completar");
+          onChangeStatus(appointment, "completed");
+        }}
         className="inline-flex items-center justify-center w-8 h-8 text-green-600 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 transition-colors"
         title="Marcar como completada"
       >

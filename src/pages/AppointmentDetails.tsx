@@ -28,6 +28,7 @@ import {
 import type { Appointment } from "../types";
 import toast from "react-hot-toast";
 import DocumentUpload from "../components/DocumentUpload";
+import { exportAppointmentToWord } from "../utils/docxExport";
 
 const AppointmentDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -65,6 +66,9 @@ const AppointmentDetails = () => {
     recommendations?: string;
     conclusions?: string;
   }>({});
+
+  // Estado para indicar si se está exportando a Word
+  const [isExporting, setIsExporting] = useState(false);
 
   // Manejar cambios en el formulario de resultados
   const handleResultsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -169,7 +173,34 @@ const AppointmentDetails = () => {
 
   // Manejar subida de documento
   const handleDocumentUpload = (appointmentId: string, file: File) => {
+    // Verificar que la cita esté completada antes de subir documento
+    if (appointment?.status !== "completed") {
+      toast.error("Solo se pueden subir documentos a citas completadas");
+      return;
+    }
     uploadDocument({ appointmentId, file });
+  };
+
+  // Manejar exportación a Word
+  const handleExportToWord = async () => {
+    if (!appointment) return;
+
+    // Verificar que la cita esté completada
+    if (appointment.status !== "completed") {
+      toast.error("Solo se pueden exportar citas completadas");
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      await exportAppointmentToWord(appointment);
+      toast.success("Documento exportado exitosamente");
+    } catch (error) {
+      console.error("Error al exportar documento:", error);
+      toast.error("Error al exportar documento");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Funciones auxiliares
@@ -257,18 +288,32 @@ const AppointmentDetails = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {/* Botón para subir documento */}
-            <button
-              onClick={() => setShowDocumentModal(true)}
-              className="btn btn-secondary inline-flex items-center"
-            >
-              <Upload size={18} className="mr-2" />
-              <span>
-                {appointment.document
-                  ? "Gestionar Documento"
-                  : "Subir Documento"}
-              </span>
-            </button>
+            {/* Botón para subir documento (solo para citas completadas) */}
+            {appointment.status === "completed" && (
+              <button
+                onClick={() => setShowDocumentModal(true)}
+                className="btn btn-secondary inline-flex items-center"
+              >
+                <Upload size={18} className="mr-2" />
+                <span>
+                  {appointment.document
+                    ? "Gestionar Documento"
+                    : "Subir Documento"}
+                </span>
+              </button>
+            )}
+
+            {/* Botón para exportar a Word (solo para citas completadas) */}
+            {appointment.status === "completed" && (
+              <button
+                onClick={handleExportToWord}
+                disabled={isExporting}
+                className="btn btn-secondary inline-flex items-center"
+              >
+                <FileText size={18} className="mr-2" />
+                <span>{isExporting ? "Exportando..." : "Exportar a Word"}</span>
+              </button>
+            )}
 
             {appointment?.status === "scheduled" && (
               <>
@@ -598,8 +643,8 @@ const AppointmentDetails = () => {
             </div>
           )}
 
-          {/* Documento asociado */}
-          {appointment.document && (
+          {/* Documento asociado (solo si está completada) */}
+          {appointment.status === "completed" && appointment.document && (
             <div className="bg-white shadow rounded-lg overflow-hidden border border-gray-100 mb-6">
               <div className="px-6 py-4 bg-gray-50 border-b">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -633,6 +678,24 @@ const AppointmentDetails = () => {
             </div>
           )}
 
+          {/* Información para citas no completadas */}
+          {appointment.status !== "completed" && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <Info className="h-5 w-5 text-blue-500 mt-0.5 mr-2" />
+                <div>
+                  <h3 className="text-sm font-medium text-blue-900 mb-1">
+                    Documentos y Exportación
+                  </h3>
+                  <p className="text-sm text-blue-700">
+                    Los documentos PDF y la exportación a Word estarán
+                    disponibles una vez que la cita sea completada.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Motivo de cancelación (solo si está cancelada) */}
           {appointment?.status === "cancelled" &&
             appointment.cancellationReason && (
@@ -653,8 +716,8 @@ const AppointmentDetails = () => {
         </div>
       </div>
 
-      {/* Modal de gestión de documentos */}
-      {showDocumentModal && (
+      {/* Modal de gestión de documentos (solo para citas completadas) */}
+      {showDocumentModal && appointment.status === "completed" && (
         <div className="fixed z-50 inset-0 overflow-y-auto">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div
@@ -685,7 +748,7 @@ const AppointmentDetails = () => {
                     <div className="mt-2">
                       <p className="text-sm text-gray-500">
                         Sube un documento PDF que se asociará permanentemente a
-                        esta cita.
+                        esta cita completada.
                       </p>
                     </div>
                   </div>
@@ -696,6 +759,7 @@ const AppointmentDetails = () => {
                     currentDocument={appointment.document}
                     onUpload={handleDocumentUpload}
                     isUploading={isUploadingDocument}
+                    disabled={appointment.status !== "completed"}
                   />
                 </div>
               </div>
