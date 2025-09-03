@@ -470,6 +470,18 @@ const Dashboard = () => {
                       scope="col"
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
+                      Canceladas
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      No Asistieron
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
                       Tasa de Completitud
                     </th>
                   </tr>
@@ -478,7 +490,7 @@ const Dashboard = () => {
                   {sortedPsychologists.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={5}
+                        colSpan={7}
                         className="px-6 py-4 text-center text-sm text-gray-500"
                       >
                         No hay psicólogos registrados
@@ -513,6 +525,16 @@ const Dashboard = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                             {psychologist.stats.scheduled}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                            {psychologist.stats.cancelled}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                            {psychologist.stats.noShow}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
